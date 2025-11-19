@@ -2,6 +2,7 @@ export interface Suggestion {
   originalText: string;
   suggestion: string;
   reasoning: string;
+  category: 'Adverb' | 'Passive Voice' | 'Cliché' | 'Show, Don\'t Tell' | 'Structure' | 'Tone';
 }
 
 export interface ChatMessage {

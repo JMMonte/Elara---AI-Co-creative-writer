@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { SparklesIcon, RefreshIcon } from './Icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { SparklesIcon, RefreshIcon, WandIcon } from './Icons';
 import { rewriteSelection } from '../services/geminiService';
 
 interface MagicMenuProps {
@@ -13,23 +13,32 @@ interface MagicMenuProps {
 const MagicMenu: React.FC<MagicMenuProps> = ({ selectionRect, selectedText, fullText, onReplace, onClose }) => {
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [position, setPosition] = useState({ top: 0, left: 0, placeAbove: true });
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (selectionRect) {
+      // Check distance to top of screen
+      const spaceAbove = selectionRect.top;
+      const placeAbove = spaceAbove > 220; // Threshold for flipping position
+      
       setPosition({
-        top: selectionRect.top - 70, 
-        left: Math.max(10, selectionRect.left + (selectionRect.width / 2) - 160) 
+        top: placeAbove ? selectionRect.top - 12 : selectionRect.bottom + 12, 
+        left: Math.max(10, selectionRect.left + (selectionRect.width / 2)), // Centered horizontally relative to selection
+        placeAbove
       });
     }
   }, [selectionRect]);
 
-  const handleSubmit = async () => {
-    if (!inputValue.trim()) return;
-    
+  const handleQuickAction = (action: string) => {
+    setInputValue(action); // Visual feedback
+    executeRewrite(action);
+  };
+
+  const executeRewrite = async (instruction: string) => {
     setIsProcessing(true);
     try {
-      const newText = await rewriteSelection(selectedText, inputValue, fullText);
+      const newText = await rewriteSelection(selectedText, instruction, fullText);
       onReplace(newText);
       onClose();
     } catch (e) {
@@ -39,25 +48,37 @@ const MagicMenu: React.FC<MagicMenuProps> = ({ selectionRect, selectedText, full
     }
   };
 
+  const handleSubmit = () => {
+    if (!inputValue.trim()) return;
+    executeRewrite(inputValue);
+  };
+
   if (!selectionRect) return null;
 
   return (
     <div 
-      className="fixed z-50 flex flex-col bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] w-[320px] font-typewriter animate-fade-in-up"
-      style={{ top: position.top, left: position.left }}
+      ref={menuRef}
+      className="fixed z-50 flex flex-col bg-[#fdfbf7] border border-[#a8a29e] shadow-xl w-[320px] font-typewriter animate-fade-in-up"
+      style={{ 
+        top: position.top, 
+        left: position.left,
+        transform: `translateX(-50%) ${position.placeAbove ? 'translateY(-100%)' : 'translateY(0)'}` // Ensure it sits above/below correctly
+      }}
     >
-      <div className="bg-black px-3 py-1 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-widest">
-          <SparklesIcon className="w-3 h-3" />
-          <span>Magic Rewrite</span>
+      {/* Minimal Header */}
+      <div className="px-4 py-2 border-b border-[#e5e5e5] flex items-center justify-between bg-white/50">
+        <div className="flex items-center gap-1.5 text-gray-500">
+          <WandIcon className="w-3 h-3" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Magic Edit</span>
         </div>
-        <button onClick={onClose} className="text-white/80 hover:text-white text-xs font-mono">
-          [ESC]
+        <button onClick={onClose} className="text-[10px] text-gray-400 hover:text-black px-1">
+          ESC
         </button>
       </div>
       
-      <div className="p-3 bg-[#fffdfa]">
-        <div className="relative">
+      <div className="p-3 space-y-3">
+        {/* Input Field */}
+        <div className="relative group">
           <input
             type="text"
             value={inputValue}
@@ -66,27 +87,40 @@ const MagicMenu: React.FC<MagicMenuProps> = ({ selectionRect, selectedText, full
                if (e.key === 'Enter') handleSubmit();
                if (e.key === 'Escape') onClose();
             }}
-            placeholder="Instruction (e.g. Shorten)..."
-            className="w-full pl-2 pr-10 py-2 text-sm border-b border-gray-300 bg-transparent focus:outline-none focus:border-black transition-colors font-typewriter"
+            placeholder="How should I change this?"
+            className="w-full pl-2 pr-8 py-1.5 text-sm bg-transparent border-b border-dashed border-gray-300 focus:border-black focus:outline-none transition-colors font-typewriter text-[#292929] placeholder-gray-400"
             autoFocus
           />
           <button 
             onClick={handleSubmit}
-            disabled={isProcessing}
-            className="absolute right-0 top-1/2 -translate-y-1/2 text-black hover:text-gray-600 disabled:opacity-50"
+            disabled={isProcessing || !inputValue.trim()}
+            className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black disabled:opacity-30 transition-colors"
           >
             {isProcessing ? (
-              <RefreshIcon className="w-4 h-4 animate-spin" />
+              <RefreshIcon className="w-3 h-3 animate-spin" />
             ) : (
-              <span className="text-[10px] font-bold border border-black px-1 hover:bg-black hover:text-white transition-colors">GO</span>
+              <SparklesIcon className="w-3.5 h-3.5" />
             )}
           </button>
         </div>
         
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={() => setInputValue("Fix grammar")} className="text-[10px] uppercase font-bold border border-gray-300 hover:border-black px-2 py-1 text-gray-600 hover:text-black transition-colors">Grammar</button>
-          <button onClick={() => setInputValue("Make it shorter")} className="text-[10px] uppercase font-bold border border-gray-300 hover:border-black px-2 py-1 text-gray-600 hover:text-black transition-colors">Shorten</button>
-          <button onClick={() => setInputValue("Make it professional")} className="text-[10px] uppercase font-bold border border-gray-300 hover:border-black px-2 py-1 text-gray-600 hover:text-black transition-colors">Professional</button>
+        {/* Preset Tools Grid */}
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: "Show, Don't Tell", action: "ShowDontTell" },
+            { label: "Make Vivid", action: "Sensory" },
+            { label: "Strong Verbs", action: "StrongerVerbs" },
+            { label: "Add Metaphor", action: "Metaphor" }
+          ].map((tool) => (
+            <button 
+              key={tool.action}
+              onClick={() => handleQuickAction(tool.action)} 
+              disabled={isProcessing}
+              className="text-[11px] text-left px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-white hover:shadow-sm transition-all text-gray-600 hover:text-black rounded-sm"
+            >
+              {tool.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>

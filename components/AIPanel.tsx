@@ -1,19 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { Suggestion, FileAttachment, ChatMessage } from '../types';
-import { SendIcon, PaperclipIcon, SparklesIcon, XIcon } from './Icons';
-import { chatWithAI, generateDraft } from '../services/geminiService';
+import { FileAttachment, ChatMessage } from '../types';
+import { SendIcon, PaperclipIcon, XIcon } from './Icons';
+import { chatWithAI } from '../services/geminiService';
 
 interface AIPanelProps {
-  suggestions: Suggestion[];
-  onApplySuggestion: (s: Suggestion) => void;
   onInsertText: (text: string) => void;
 }
 
-const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onInsertText }) => {
-  const [mode, setMode] = useState<'chat' | 'draft'>('chat');
+const AIPanel: React.FC<AIPanelProps> = ({ onInsertText }) => {
   const [input, setInput] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { role: 'model', text: "I am your co-author. Ready to draft or review." }
+    { role: 'model', text: "I'm your creative partner. I can help you brainstorm, outline, or draft scenes." }
   ]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -52,19 +49,6 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
     setIsThinking(true);
 
     try {
-      if (mode === 'draft') {
-        setChatHistory(prev => [...prev, { 
-            role: 'model', 
-            text: "Drafting content...",
-            isLoading: true
-        }]);
-        
-        const draft = await generateDraft(userMsg.text, files);
-        
-        setChatHistory(prev => prev.filter(msg => !msg.isLoading));
-        setChatHistory(prev => [...prev, { role: 'model', text: "Draft complete:" }]);
-        setChatHistory(prev => [...prev, { role: 'model', text: draft, isLoading: false }]);
-      } else {
         const historyForApi = chatHistory.map(h => ({ 
             role: h.role, 
             parts: [{ text: h.text }] 
@@ -72,9 +56,8 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
         
         const response = await chatWithAI(historyForApi, userMsg.text, files);
         setChatHistory(prev => [...prev, { role: 'model', text: response }]);
-      }
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'model', text: "Connection error encountered." }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: "I lost my train of thought. Please try again." }]);
     } finally {
       setIsThinking(false);
       setFiles([]);
@@ -83,66 +66,33 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
 
   return (
     <div className="h-full flex flex-col bg-[#f2f0eb] border-l border-[#d1d1cd] w-full font-typewriter text-sm">
-      {/* Tabs */}
-      <div className="flex border-b border-[#d1d1cd] bg-[#eae8e3]">
-        <button 
-          onClick={() => setMode('chat')}
-          className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-colors ${mode === 'chat' ? 'text-black bg-[#f2f0eb] shadow-sm' : 'text-gray-500 hover:bg-[#efede8]'}`}
-        >
-          Partner
-        </button>
-        <button 
-          onClick={() => setMode('draft')}
-          className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-colors ${mode === 'draft' ? 'text-black bg-[#f2f0eb] shadow-sm' : 'text-gray-500 hover:bg-[#efede8]'}`}
-        >
-          Drafter
-        </button>
+      <div className="p-4 border-b border-[#d1d1cd] bg-[#eae8e3] flex justify-between items-center">
+         <span className="text-xs font-bold uppercase tracking-widest text-[#292929]">AI Partner</span>
       </div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar">
-        {/* Suggestions Section (Proactive) */}
-        {suggestions.length > 0 && (
-          <div className="mb-6 p-4 bg-[#fffdfa] border border-dashed border-gray-400 rounded-sm shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-gray-800">
-              <SparklesIcon className="w-4 h-4 text-yellow-600" />
-              <h3 className="text-xs font-bold uppercase tracking-widest">Suggestions</h3>
-            </div>
-            <div className="space-y-4">
-              {suggestions.map((s, i) => (
-                <div key={i} className="cursor-pointer group" onClick={() => onApplySuggestion(s)}>
-                  <div className="flex justify-between items-start">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Rewrite</p>
-                    <span className="opacity-0 group-hover:opacity-100 text-[10px] bg-gray-800 text-white px-1 py-0.5 rounded-none">APPLY</span>
-                  </div>
-                  <p className="text-xs text-gray-400 line-through font-mono mb-1">{s.originalText}</p>
-                  <p className="text-sm text-gray-900 font-medium border-l-2 border-yellow-500 pl-2">{s.suggestion}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+        
         {/* Chat Messages */}
         {chatHistory.map((msg, idx) => (
             <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[90%] px-4 py-3 text-sm border ${
+                <div className={`max-w-[90%] px-4 py-3 text-sm border shadow-[2px_2px_0px_rgba(0,0,0,0.05)] ${
                     msg.role === 'user' 
-                    ? 'bg-white border-gray-300 text-gray-800 shadow-sm' 
-                    : 'bg-transparent border-transparent text-gray-700 italic'
+                    ? 'bg-white border-gray-300 text-[#292929]' 
+                    : 'bg-[#eae8e3] border-[#d1d1cd] text-[#292929]'
                 }`}>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                        {msg.role === 'user' ? 'You' : 'AI'}
+                    <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1 tracking-wider">
+                        {msg.role === 'user' ? 'You' : 'Partner'}
                     </span>
-                    <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
+                    <div className="whitespace-pre-wrap leading-relaxed font-typewriter">{msg.text}</div>
                     
                     {/* Action for large model outputs (Drafts) */}
                     {msg.role === 'model' && !msg.isLoading && msg.text.length > 100 && (
                         <button 
                             onClick={() => onInsertText(msg.text)}
-                            className="mt-3 text-xs flex items-center gap-1 text-gray-900 border border-gray-300 px-2 py-1 hover:bg-gray-100 uppercase tracking-wider"
+                            className="mt-3 text-xs flex items-center gap-1 text-[#292929] border border-gray-400 px-2 py-1 hover:bg-[#292929] hover:text-white transition-colors uppercase tracking-wider"
                         >
-                            <SendIcon className="w-3 h-3 rotate-180" /> Insert
+                            <SendIcon className="w-3 h-3 rotate-180" /> Insert to Page
                         </button>
                     )}
                 </div>
@@ -150,7 +100,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
         ))}
         
         {isThinking && (
-             <div className="flex items-center gap-2 text-gray-400 text-xs animate-pulse pl-2">
+             <div className="flex items-center gap-2 text-gray-400 text-xs animate-pulse pl-2 font-mono">
                  <span>Thinking...</span>
              </div>
         )}
@@ -161,7 +111,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
         {files.length > 0 && (
             <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
                 {files.map((f, i) => (
-                    <div key={i} className="flex items-center gap-1 bg-white border border-gray-300 px-2 py-1 text-xs text-gray-600 font-mono">
+                    <div key={i} className="flex items-center gap-1 bg-white border border-gray-300 px-2 py-1 text-xs text-gray-600 font-mono shadow-sm">
                         <span>{f.name.length > 15 ? f.name.substring(0, 12) + '...' : f.name}</span>
                         <button onClick={() => removeFile(i)}><XIcon className="w-3 h-3" /></button>
                     </div>
@@ -172,8 +122,8 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
         <div className="flex gap-2 items-end">
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-gray-500 hover:text-gray-800 transition-colors"
-            title="Attach Reference"
+            className="p-2 text-gray-500 hover:text-[#292929] transition-colors"
+            title="Attach Reference Material"
           >
             <PaperclipIcon className="w-5 h-5" />
             <input 
@@ -196,8 +146,8 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
                   handleSend();
                 }
               }}
-              placeholder={mode === 'draft' ? "Brief the drafter..." : "Note to AI..."}
-              className="w-full resize-none max-h-32 min-h-[44px] py-2 px-3 bg-[#fdfbf7] border border-gray-300 focus:outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-400 text-sm font-typewriter"
+              placeholder="Ask for advice or ideas..."
+              className="w-full resize-none max-h-32 min-h-[44px] py-2 px-3 bg-[#fdfbf7] border border-gray-300 focus:outline-none focus:border-[#292929] focus:ring-0 text-sm font-typewriter text-[#292929] placeholder-gray-400"
               rows={1}
             />
           </div>
@@ -205,10 +155,10 @@ const AIPanel: React.FC<AIPanelProps> = ({ suggestions, onApplySuggestion, onIns
           <button 
             onClick={handleSend}
             disabled={(!input.trim() && files.length === 0) || isThinking}
-            className={`p-2 border transition-all ${
+            className={`p-2 border transition-all shadow-sm ${
               (!input.trim() && files.length === 0) || isThinking
                 ? 'bg-transparent border-transparent text-gray-400' 
-                : 'bg-gray-800 border-gray-800 text-white hover:bg-black'
+                : 'bg-[#292929] border-[#292929] text-[#fdfbf7] hover:bg-black'
             }`}
           >
             <SendIcon className="w-4 h-4" />

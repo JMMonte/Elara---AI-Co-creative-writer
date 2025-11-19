@@ -63,6 +63,40 @@
           0 20px 0 -10px #fdfbf7, 
           0 20px 1px -9px rgba(0,0,0,0.15);
       }
+
+      /* Critique Highlight Marker */
+      .critique-marker {
+        text-decoration: underline;
+        text-decoration-style: wavy;
+        text-decoration-color: #ef4444; /* Red-500 */
+        text-decoration-thickness: 1px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .critique-marker:hover, .critique-marker.active {
+        background-color: rgba(239, 68, 68, 0.1);
+      }
+
+      /* Diff View Styles - Analog/Proofreader Style */
+      .diff-view-container {
+        /* Ensure inline flow is perfect */
+        display: inline;
+      }
+
+      .diff-del {
+        text-decoration: line-through;
+        color: #a8a29e; /* Muted grey for deleted text */
+        background-color: transparent;
+        margin-right: 2px;
+      }
+      
+      .diff-ins {
+        text-decoration: underline;
+        font-weight: bold;
+        color: #292929; /* Dark ink for new text */
+        background-color: transparent;
+      }
     </style>
   <script type="importmap">
 {

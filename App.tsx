@@ -36,27 +36,29 @@ const App = () => {
     }
   };
 
-  const handleSuggestionApply = (s: Suggestion) => {
-    const editor = document.querySelector('.editor-content') as HTMLElement;
-    if (editor) {
-        if (editor.innerText.includes(s.originalText)) {
-            const newText = editor.innerText.replace(s.originalText, s.suggestion);
-            editor.innerText = newText; // Update DOM directly
-            setEditorContent(newText); // Update State
-            setSuggestions(prev => prev.filter(item => item !== s));
-        } else {
-            alert("Could not find exact text match to replace. It might have changed.");
-        }
-    }
+  const handleSuggestionHandled = (s: Suggestion) => {
+    // Remove the suggestion from the global list once accepted/rejected in Editor
+    setSuggestions(prev => prev.filter(item => item !== s));
   };
 
   const runProactiveAnalysis = useCallback(async () => {
-    if (!editorContent || editorContent.length < 50) return;
+    if (!editorContent || editorContent.length < 10) {
+        alert("Please write a bit more before asking for a critique!");
+        return;
+    }
     
     setIsAnalyzing(true);
-    const newSuggestions = await analyzeTextForSuggestions(editorContent);
-    setSuggestions(newSuggestions);
-    setIsAnalyzing(false);
+    try {
+        const newSuggestions = await analyzeTextForSuggestions(editorContent);
+        setSuggestions(newSuggestions);
+        if (newSuggestions.length === 0) {
+            alert("Your prose looks clean! No major issues found.");
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsAnalyzing(false);
+    }
   }, [editorContent]);
 
   // Auto-partner logic
@@ -67,29 +69,32 @@ const App = () => {
         if (editorContent.length > 100) {
            runProactiveAnalysis(); 
         }
-    }, 5000); 
+    }, 10000); 
     return () => clearTimeout(timer);
   }, [editorContent, runProactiveAnalysis, autoPartnerEnabled]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#e8e8e5] font-typewriter">
       {/* Main Editor Area */}
-      <div className="flex-1 relative flex flex-col h-full overflow-hidden transition-all duration-300">
+      <div 
+        className="flex-1 relative flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out"
+        style={{ marginRight: sidebarOpen ? '350px' : '0px' }}
+      >
         {/* Header - Minimal & Analog */}
         <header className="h-16 border-b border-[#d1d1cd] bg-[#e8e8e5] flex items-center justify-between px-6 shrink-0 z-10">
-            <div className="flex items-center gap-3 select-none">
-                <h1 className="text-2xl font-bold text-[#292929] tracking-tight">Ether Write</h1>
+            <div className="flex items-center gap-3 select-none opacity-50 hover:opacity-100 transition-opacity">
+                <SparklesIcon className="w-5 h-5 text-[#292929]" />
             </div>
             
             <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-gray-600 cursor-pointer hover:text-black transition-colors" title="AI will periodically scan your text for improvements">
+                <label className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-gray-600 cursor-pointer hover:text-black transition-colors" title="AI will periodically critique your prose">
                    <input 
                       type="checkbox" 
                       checked={autoPartnerEnabled} 
                       onChange={(e) => setAutoPartnerEnabled(e.target.checked)}
-                      className="accent-gray-800 w-4 h-4"
+                      className="accent-[#292929] w-4 h-4"
                    />
-                   Auto-Partner
+                   Auto-Critique
                 </label>
                 
                 <div className="h-6 w-[1px] bg-gray-400 mx-2"></div>
@@ -97,16 +102,19 @@ const App = () => {
                 <button 
                     onClick={runProactiveAnalysis}
                     disabled={isAnalyzing}
-                    className={`flex items-center gap-2 px-4 py-1.5 border border-gray-600 text-xs font-bold uppercase tracking-wider transition-all
-                        ${isAnalyzing ? 'bg-gray-200 text-gray-500' : 'bg-transparent text-gray-800 hover:bg-gray-800 hover:text-white'}`}
+                    className={`flex items-center gap-2 px-4 py-1.5 border text-xs font-bold uppercase tracking-wider transition-all
+                        ${isAnalyzing 
+                            ? 'bg-[#292929] text-white border-[#292929] opacity-80 cursor-wait' 
+                            : 'bg-transparent border-gray-600 text-[#292929] hover:bg-[#292929] hover:text-[#fdfbf7] hover:border-[#292929]'
+                        }`}
                 >
                    <WandIcon className={`w-3 h-3 ${isAnalyzing ? 'animate-spin' : ''}`} />
-                   {isAnalyzing ? 'Scanning...' : 'Scan'}
+                   {isAnalyzing ? 'Reading...' : 'Critique'}
                 </button>
                 
                 <button 
                     onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="p-2 hover:bg-gray-300 rounded-sm text-gray-800"
+                    className={`p-2 hover:bg-gray-300 rounded-sm transition-colors ${sidebarOpen ? 'text-[#292929]' : 'text-gray-500'}`}
                 >
                     <MenuIcon />
                 </button>
@@ -114,12 +122,14 @@ const App = () => {
         </header>
 
         {/* Scrollable Editor Canvas */}
-        <main className="flex-1 overflow-y-auto relative cursor-text">
+        <main className="flex-1 overflow-y-auto relative cursor-text scroll-smooth">
             <Editor 
                 initialContent=""
                 onSelectionChange={handleSelectionChange}
                 onContentChange={setEditorContent}
                 externalInsert={externalInsertText}
+                suggestions={suggestions}
+                onSuggestionHandled={handleSuggestionHandled}
             />
         </main>
 
@@ -137,14 +147,11 @@ const App = () => {
 
       {/* Right Sidebar (AI Partner) */}
       <div 
-        className={`fixed inset-y-0 right-0 w-[400px] bg-[#f2f0eb] shadow-2xl transform transition-transform duration-300 ease-in-out z-20 border-l border-[#bbb]
-        ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} lg:relative lg:translate-x-0 lg:shadow-none
-        ${!sidebarOpen && 'lg:hidden'}
+        className={`fixed inset-y-0 right-0 w-[350px] bg-[#f2f0eb] shadow-2xl transform transition-transform duration-300 ease-in-out z-30 border-l border-[#bbb]
+        ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} 
         `}
       >
         <AIPanel 
-            suggestions={suggestions}
-            onApplySuggestion={handleSuggestionApply}
             onInsertText={(text) => {
                 setExternalInsertText(text);
                 setTimeout(() => setExternalInsertText(null), 100);

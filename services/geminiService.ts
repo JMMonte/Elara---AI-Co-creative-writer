@@ -32,7 +32,7 @@ export const generateDraft = async (
       model: 'gemini-3-pro-preview',
       contents: { parts },
       config: {
-        systemInstruction: "You are a professional writer and thought partner. Create comprehensive, well-structured, and engaging content based on the user's request and attachments. Use Markdown formatting for headers and lists, but avoid code blocks for normal text.",
+        systemInstruction: "You are a master literary editor and creative writing coach. Your goal is to help the user write compelling, vivid, and emotionally resonant prose. When drafting, prioritize 'showing' over 'telling', use strong verbs, avoid excessive adverbs, and maintain a consistent, distinct voice. DO NOT use emojis in your response.",
         // Enable thinking for complex drafting tasks
         thinkingConfig: { thinkingBudget: 2048 },
         maxOutputTokens: 8192, 
@@ -56,14 +56,27 @@ export const rewriteSelection = async (
   context: string
 ): Promise<string> => {
   try {
+    // Check for specific creative writing "modes" passed as instruction
+    let detailedInstruction = instruction;
+    
+    if (instruction === 'ShowDontTell') {
+      detailedInstruction = "Rewrite this using 'Show, Don't Tell'. Replace abstract emotions or summaries with sensory details, action, and body language. Make the reader feel it.";
+    } else if (instruction === 'StrongerVerbs') {
+      detailedInstruction = "Replace weak verbs (to be, to have, etc.) and adverbs with precise, evocative, and powerful action verbs.";
+    } else if (instruction === 'Sensory') {
+      detailedInstruction = "Enhance this text by incorporating the five senses (sight, sound, smell, touch, taste) to make the scene immersive.";
+    } else if (instruction === 'Metaphor') {
+      detailedInstruction = "Rewrite this using a fresh, creative metaphor or simile to describe the subject matter.";
+    }
+
     const prompt = `
-      Context: "${context.substring(0, 1000)}..."
+      Context (preceding text): "${context.substring(Math.max(0, context.length - 1000))}"
       
       Selected Text to Modify: "${selectedText}"
       
-      User Instruction: "${instruction}"
+      Instruction: "${detailedInstruction}"
       
-      Task: Rewrite the 'Selected Text' based on the 'User Instruction'. Maintain the tone of the Context. Return ONLY the rewritten text, no explanations or quotes.
+      Task: Rewrite the 'Selected Text' strictly following the instruction. Maintain the author's voice but elevate the prose quality. Return ONLY the rewritten text. DO NOT use emojis.
     `;
 
     const response = await ai.models.generateContent({
@@ -84,12 +97,21 @@ export const rewriteSelection = async (
  */
 export const analyzeTextForSuggestions = async (text: string): Promise<Suggestion[]> => {
   try {
-    if (!text || text.length < 50) return [];
+    if (!text || text.length < 10) return [];
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Analyze the following text and identify 3 areas for improvement (grammar, clarity, tone, or structure). Return a JSON array. 
-      Text: "${text.substring(0, 2000)}..."`,
+      contents: `Act as a strict literary editor. Analyze the following text for signs of amateur writing. 
+      Specifically look for:
+      1. Weak Verbs & Adverb Overuse (e.g., "ran quickly" vs "sprinted").
+      2. Passive Voice (where active would be stronger).
+      3. Clichés and Tired Phrases.
+      4. "Telling" instead of "Showing" (abstract summaries of emotion).
+      5. Repetitive sentence structure.
+      
+      Return a JSON array of the top 3 most critical issues. Do NOT use emojis in the suggestion or reasoning.
+      
+      Text to analyze: "${text.substring(0, 3000)}..."`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -97,9 +119,14 @@ export const analyzeTextForSuggestions = async (text: string): Promise<Suggestio
           items: {
             type: Type.OBJECT,
             properties: {
-              originalText: { type: Type.STRING, description: "The exact snippet from the text to change" },
-              suggestion: { type: Type.STRING, description: "The suggested rewrite" },
-              reasoning: { type: Type.STRING, description: "Why this change is recommended" }
+              originalText: { type: Type.STRING, description: "The exact short snippet from the text to change" },
+              suggestion: { type: Type.STRING, description: "The rewritten version" },
+              reasoning: { type: Type.STRING, description: "Brief explanation of the literary principle involved" },
+              category: { 
+                type: Type.STRING, 
+                enum: ['Adverb', 'Passive Voice', 'Cliché', 'Show, Don\'t Tell', 'Structure', 'Tone'],
+                description: "The type of writing issue"
+              }
             }
           }
         }
@@ -127,6 +154,9 @@ export const chatWithAI = async (history: {role: string, parts: {text: string}[]
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', // Good balance for chat
+            config: {
+                systemInstruction: "You are a creative writing partner. Help the user brainstorm, outline, and refine their story. Be encouraging but offer specific, high-level craft advice (pacing, character development, theme). DO NOT use emojis in your output.",
+            },
             contents: [
                 ...history.map(h => ({ role: h.role, parts: h.parts })),
                 { role: 'user', parts }
