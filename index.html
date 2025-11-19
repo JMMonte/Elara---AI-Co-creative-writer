@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ether Write</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Courier Prime', monospace;
+        background-color: #e8e8e5; /* Desk color */
+        color: #292929;
+      }
+      
+      .font-typewriter {
+        font-family: 'Courier Prime', monospace;
+      }
+      
+      .font-sans {
+        font-family: 'Inter', sans-serif;
+      }
+
+      /* Hide scrollbar for cleaner look */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .editor-content:focus {
+        outline: none;
+      }
+      
+      /* Smooth placeholder behavior */
+      [contenteditable]:empty:before {
+        content: attr(placeholder);
+        color: #a8a29e;
+        font-style: italic;
+        pointer-events: none;
+        display: block; /* For Firefox */
+      }
+      
+      @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .animate-fade-in-up {
+        animation: fade-in-up 0.3s ease-out forwards;
+      }
+
+      /* Paper shadow effect */
+      .paper-shadow {
+        box-shadow: 
+          0 1px 1px rgba(0,0,0,0.15), 
+          0 10px 0 -5px #fdfbf7, 
+          0 10px 1px -4px rgba(0,0,0,0.15), 
+          0 20px 0 -10px #fdfbf7, 
+          0 20px 1px -9px rgba(0,0,0,0.15);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
